@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DropAI</title>
+<link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root {
+  --bg:          #09090f;
+  --glass:       rgba(255,255,255,0.04);
+  --glass-md:    rgba(255,255,255,0.07);
+  --glass-hi:    rgba(255,255,255,0.11);
+  --border:      rgba(255,255,255,0.08);
+  --border-hi:   rgba(255,255,255,0.16);
+  --acc:         #5B8AF5;
+  --acc2:        #7B6CF6;
+  --acc-glow:    rgba(91,138,245,0.25);
+  --green:       #34D399;
+  --text:        rgba(255,255,255,0.92);
+  --sub:         rgba(255,255,255,0.45);
+  --muted:       rgba(255,255,255,0.22);
+  --radius:      14px;
+  --radius-sm:   8px;
+  --font:        'Inter', system-ui, sans-serif;
+  --mono:        'JetBrains Mono', monospace;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ========== BUBBLES BACKGROUND ========== */
+.bubbles-canvas {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ========== BACKGROUND GRADIENT BLOBS ========== */
+.bg-blobs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.12;
+  animation: blob-drift 20s ease-in-out infinite;
+}
+.blob-1 {
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, #3B5BDB, transparent);
+  top: -200px; left: -150px;
+  animation-delay: 0s;
+}
+.blob-2 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, #7950F2, transparent);
+  bottom: -150px; right: -100px;
+  animation-delay: -7s;
+}
+.blob-3 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, #1C7ED6, transparent);
+  top: 40%; left: 50%;
+  transform: translateX(-50%);
+  animation-delay: -14s;
+}
+@keyframes blob-drift {
+  0%,100%{transform:translate(0,0) scale(1)}
+  33%{transform:translate(40px,-30px) scale(1.05)}
+  66%{transform:translate(-20px,40px) scale(0.96)}
+}
+
+/* ========== NOISE OVERLAY ========== */
+body::after {
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity:0.018;
+  pointer-events:none;
+  z-index:9999;
+}
+
+/* ========== SIDEBAR ========== */
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-right: 1px solid var(--border);
+}
+
+.logo-wrap {
+  padding: 20px 16px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  -webkit-app-region: drag;
+}
+
+.logo-mark {
+  width: 32px; height: 32px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px var(--acc-glow);
+}
+
+.logo-name {
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.6px;
+  color: var(--text);
+}
+.logo-name em { 
+  color: transparent;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  font-style: normal;
+}
+
+.nav {
+  flex: 1;
+  padding: 10px 8px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav::-webkit-scrollbar{display:none}
+
+.nav-sep {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 12px 10px 6px;
+  font-weight: 600;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(.4,0,.2,1);
+  color: var(--sub);
+  font-size: 13px;
+  font-weight: 500;
+  user-select: none;
+  border: 1px solid transparent;
+}
+.nav-item:hover {
+  background: var(--glass-md);
+  color: var(--text);
+  border-color: var(--border);
+}
+.nav-item.active {
+  background: rgba(91,138,245,0.12);
+  color: var(--text);
+  border-color: rgba(91,138,245,0.25);
+}
+.nav-item.active .ni svg path,
+.nav-item.active .ni svg rect,
+.nav-item.active .ni svg circle {
+  stroke: var(--acc);
+}
+.ni {
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+.nav-item.active .ni { opacity: 1; }
+.nl { flex: 1; }
+
+.sidebar-foot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+.online-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse-online 2.5s ease-in-out infinite;
+  box-shadow: 0 0 6px var(--green);
+}
+@keyframes pulse-online {
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.5;transform:scale(0.8)}
+}
+
+/* ========== MAIN ========== */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  z-index: 5;
+}
+
+.topbar {
+  height: 52px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 22px;
+  gap: 12px;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  -webkit-app-region: drag;
+}
+.topbar-title {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+.topbar-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.topbar-sub {
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+  font-weight: 400;
+}
+.mob-toggle {
+  display: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--sub);
+  -webkit-app-region: no-drag;
+}
+
+/* ========== PANELS ========== */
+.panel {
+  display: none;
+  flex: 1;
+  overflow: hidden;
+  flex-direction: column;
+}
+.panel.active { display: flex; }
+
+/* ========== TWO-COL ========== */
+.two-col {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  flex: 1;
+  overflow: hidden;
+}
+@media(max-width:760px){.two-col{grid-template-columns:1fr;grid-template-rows:auto 1fr}}
+
+/* ========== FORM PANE ========== */
+.form-pane {
+  border-right: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(255,255,255,0.015);
+}
+.form-pane::-webkit-scrollbar{width:3px}
+.form-pane::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+.f-group { display: flex; flex-direction: column; gap: 6px; }
+
+.f-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: block;
+}
+
+.f-input,
+.f-textarea,
+.f-select {
+  width: 100%;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 400;
+  outline: none;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+  resize: none;
+  -webkit-app-region: no-drag;
+}
+.f-input::placeholder,.f-textarea::placeholder{color:var(--muted)}
+.f-input:focus,.f-textarea:focus,.f-select:focus {
+  border-color: rgba(91,138,245,0.5);
+  background: var(--glass-md);
+  box-shadow: 0 0 0 3px rgba(91,138,245,0.08);
+}
+.f-select option{background:#141428}
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ========== CHIPS ========== */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--sub);
+  transition: all 0.18s;
+  background: transparent;
+  font-family: var(--font);
+  -webkit-app-region: no-drag;
+}
+.chip:hover{border-color:var(--border-hi);color:var(--text);background:var(--glass)}
+.chip.on {
+  background: rgba(91,138,245,0.12);
+  border-color: rgba(91,138,245,0.35);
+  color: var(--text);
+}
+
+/* ========== CHECKBOXES ========== */
+.checks{display:flex;flex-direction:column;gap:5px}
+.check-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sub);
+  transition: all 0.18s;
+  user-select: none;
+  background: var(--glass);
+  -webkit-app-region: no-drag;
+}
+.check-item:hover{border-color:var(--border-hi);color:var(--text);background:var(--glass-md)}
+.check-item.on{background:rgba(91,138,245,0.08);border-color:rgba(91,138,245,0.2);color:var(--text)}
+.check-box {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px;
+  color: var(--acc);
+  transition: all 0.18s;
+}
+.check-item.on .check-box {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: #fff;
+}
+
+/* ========== BUTTONS ========== */
+.btn-run {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(.4,0,.2,1);
+  letter-spacing: 0.1px;
+  box-shadow: 0 4px 20px rgba(91,138,245,0.3);
+  -webkit-app-region: no-drag;
+  position: relative;
+  overflow: hidden;
+}
+.btn-run::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background 0.2s;
+}
+.btn-run:hover::before { background: rgba(255,255,255,0.08); }
+.btn-run:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(91,138,245,0.4); }
+.btn-run:active { transform: translateY(0); }
+.btn-run:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-sec {
+  width: 100%;
+  padding: 10px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--sub);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s;
+  -webkit-app-region: no-drag;
+}
+.btn-sec:hover { border-color: var(--acc); color: var(--text); background: var(--glass-md); }
+
+/* ========== OUTPUT PANE ========== */
+.out-pane{display:flex;flex-direction:column;overflow:hidden}
+
+.out-head {
+  height: 44px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  gap: 12px;
+  flex-shrink: 0;
+  background: rgba(255,255,255,0.02);
+}
+.out-head-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex: 1;
+}
+.btn-copy {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: all 0.18s;
+  -webkit-app-region: no-drag;
+}
+.btn-copy:hover{color:var(--text);border-color:var(--border-hi);background:var(--glass-md)}
+
+.out-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 22px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.85;
+  color: rgba(255,255,255,0.7);
+  font-family: var(--mono);
+}
+.out-body::-webkit-scrollbar{width:3px}
+.out-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+  font-family: var(--font);
+}
+.placeholder-icon {
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+}
+
+/* ========== PROGRESS BAR ========== */
+.prog-bar{height:2px;background:var(--border);display:none;overflow:hidden}
+.prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--acc), var(--acc2), var(--acc));
+  border-radius: 2px;
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+@keyframes shimmer {
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+
+/* ========== CURSOR ========== */
+.cur {
+  display: inline-block;
+  width: 2px; height: 14px;
+  background: var(--acc);
+  margin-left: 1px;
+  vertical-align: middle;
+  border-radius: 1px;
+  animation: blink-cur 0.75s steps(1) infinite;
+}
+@keyframes blink-cur{0%,49%{opacity:1}50%,100%{opacity:0}}
+
+/* ========== CHAT ========== */
+.chat-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.chat-msgs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.chat-msgs::-webkit-scrollbar{width:3px}
+.chat-msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+.msg-user {
+  align-self: flex-end;
+  max-width: 70%;
+  background: rgba(91,138,245,0.15);
+  border: 1px solid rgba(91,138,245,0.25);
+  border-radius: 14px 14px 3px 14px;
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.msg-ai {
+  align-self: flex-start;
+  max-width: 85%;
+  display: flex;
+  gap: 12px;
+}
+.ai-avatar {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  margin-top: 2px;
+  box-shadow: 0 2px 10px var(--acc-glow);
+}
+.ai-bubble {
+  background: var(--glass-md);
+  border: 1px solid var(--border);
+  border-radius: 3px 14px 14px 14px;
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.75;
+  flex: 1;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ========== CODE BLOCK ========== */
+.code-block {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin: 10px 0;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.code-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 14px;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.code-block pre {
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.75;
+  color: rgba(255,255,255,0.75);
+  font-family: var(--mono);
+  white-space: pre;
+}
+
+/* ========== CHAT INPUT ========== */
+.chat-input-row {
+  border-top: 1px solid var(--border);
+  padding: 14px 18px;
+  display: flex;
+  gap: 10px;
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.chat-input-row .f-input{flex:1}
+.btn-send {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: var(--font);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  box-shadow: 0 2px 12px var(--acc-glow);
+  -webkit-app-region: no-drag;
+}
+.btn-send:hover { transform: translateY(-1px); box-shadow: 0 4px 18px var(--acc-glow); }
+.btn-send:disabled{opacity:0.35;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* ========== SITE BUILDER ========== */
+.builder-grid {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  flex: 1;
+  overflow: hidden;
+}
+@media(max-width:800px){.builder-grid{grid-template-columns:1fr}}
+
+/* ========== PROGRESS STEPS ========== */
+.steps{display:flex;flex-direction:column;gap:6px;padding:16px 20px}
+.step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--glass);
+  border: 1px solid var(--border);
+  transition: all 0.3s;
+}
+.step.active { border-color: rgba(91,138,245,0.3); color: var(--text); background: rgba(91,138,245,0.06); }
+.step.done { border-color: rgba(52,211,153,0.25); color: var(--green); }
+.step-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.step.active .step-dot { background: var(--acc); animation: pulse-dot 1.2s ease infinite; }
+.step.done .step-dot { background: var(--green); }
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 0 rgba(91,138,245,0.4)}50%{box-shadow:0 0 0 6px rgba(91,138,245,0)}}
+
+/* ========== RESULT VIEW ========== */
+.result-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 20px;
+}
+.result-btn {
+  padding: 22px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--glass);
+  cursor: pointer;
+  transition: all 0.22s;
+  text-align: center;
+  font-family: var(--font);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  -webkit-app-region: no-drag;
+}
+.result-btn:hover { border-color: rgba(91,138,245,0.4); background: rgba(91,138,245,0.08); transform: translateY(-2px); }
+.result-btn .rb-icon {
+  font-size: 22px;
+  margin-bottom: 10px;
+  display: block;
+  color: var(--acc);
+}
+.result-btn .rb-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.result-btn .rb-sub { font-size: 11px; color: var(--sub); }
+
+/* ========== CODE VIEW ========== */
+.code-view{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.file-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  overflow-x: auto;
+}
+.file-tabs::-webkit-scrollbar{display:none}
+.file-tab {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--muted);
+  white-space: nowrap;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  font-family: var(--mono);
+  -webkit-app-region: no-drag;
+}
+.file-tab:hover{color:var(--text)}
+.file-tab.active { background: var(--glass-md); border-color: var(--border); color: var(--acc); }
+
+.file-content{flex:1;overflow-y:auto;padding:18px}
+.file-content::-webkit-scrollbar{width:3px}
+.file-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.file-content pre {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.8;
+  color: rgba(255,255,255,0.65);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ========== MOBILE ========== */
+@media(max-width:640px){
+  .mob-toggle{display:flex;align-items:center;gap:8px}
+  .sidebar{
+    position:fixed;top:0;left:0;bottom:0;z-index:100;
+    transform:translateX(-100%);
+    transition:transform 0.28s cubic-bezier(.4,0,.2,1);
+    width:240px;
+  }
+  .sidebar.open{transform:translateX(0)}
+  .main{width:100%}
+}
+
+/* ========== SCROLLBAR GLOBAL ========== */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* ========== COLOR INPUT ========== */
+input[type=color]{
+  width:100%;height:38px;
+  border:1px solid var(--border);
+  border-radius:var(--radius-sm);
+  background:var(--glass);
+  cursor:pointer;padding:3px;
+  -webkit-app-region: no-drag;
+}
+
+/* ========== GLASS PANEL ========== */
+.glass-panel {
+  background: var(--glass-md);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+}
+
+/* ========== BUILDER PLACEHOLDER ========== */
+.builder-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--muted);
+  text-align: center;
+  padding: 40px;
+  font-family: var(--font);
+}
+.builder-placeholder-icon {
+  width: 60px; height: 60px;
+  border-radius: 18px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 8px;
+  font-size: 24px;
+}
+
+/* Entry animations */
+@keyframes fade-up {
+  from { opacity:0; transform:translateY(12px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.panel.active .form-pane,
+.panel.active .out-pane,
+.panel.active .chat-wrap {
+  animation: fade-up 0.3s cubic-bezier(.4,0,.2,1) both;
+}
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND BLOBS -->
+<div class="bg-blobs">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+</div>
+
+<!-- BUBBLES CANVAS -->
+<canvas class="bubbles-canvas" id="bubblesCanvas"></canvas>
+
+<!-- SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <div class="logo-wrap">
+    <div class="logo-mark">DA</div>
+    <div class="logo-name">Drop<em>AI</em></div>
+  </div>
+  <div class="nav">
+    <div class="nav-item active" data-panel="tiktok">
+      <span class="ni"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="5 3 19 12 5 21 5 3"/></svg></span>
+      <span class="nl">Script TikTok</span>
+    </div>
+    <div class="nav-item" data-panel="fiche">
+      <span class="ni"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg></span>
+      <span class="nl">Fiche Produit</span>
+    </div>
+    <div class="nav-item" data-panel="analyse">
+      <span class="ni"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+      <span class="nl">Analyse Produit</span>
+    </div>
+    <div class="nav-item" data-panel="brief">
+      <span class="ni"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+      <span class="nl">Brief Fournisseur</span>
+    </div>
+    <div class="nav-sep">Création</div>
+    <div class="nav-item" data-panel="chat">
+      <span class="ni"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+      <span class="nl">Chat IA</span>
+    </div>
+    <div class="nav-item" data-panel="site">
+      <span class="ni"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+      <span class="nl">Créer un Site</span>
+    </div>
+  </div>
+  <div class="sidebar-foot">
+    <div class="online-dot"></div>
+    Connecté à Claude
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="mob-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </div>
+    <div class="topbar-title" id="top-title">Script TikTok</div>
+    <div class="topbar-dot"></div>
+    <div class="topbar-sub" id="top-sub">Génère des scripts viraux pour vendre sur TikTok</div>
+  </div>
+
+  <!-- ===== TIKTOK ===== -->
+  <div class="panel active" id="panel-tiktok">
+    <div class="two-col">
+      <div class="form-pane">
+        <div class="f-group">
+          <label class="f-label">Produit</label>
+          <input class="f-input" id="tt-product" placeholder="ex: Sac crossbody biométrique" />
+        </div>
+        <div class="f-row">
+          <div class="f-group">
+            <label class="f-label">Cible</label>
+            <input class="f-input" id="tt-target" placeholder="ex: femmes 18–35" />
+          </div>
+          <div class="f-group">
+            <label class="f-label">Prix</label>
+            <input class="f-input" id="tt-price" placeholder="ex: 49 €" />
+          </div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Argument clé (USP)</label>
+          <input class="f-input" id="tt-usp" placeholder="ex: fingerprint, impossible à voler" />
+        </div>
+        <div class="f-group">
+          <label class="f-label">Format</label>
+          <div class="chips" id="tt-chips">
+            <div class="chip on" data-val="hook_choc">Hook Choc</div>
+            <div class="chip" data-val="storytelling">Storytelling</div>
+            <div class="chip" data-val="pb_solution">Prob / Sol</div>
+            <div class="chip" data-val="temoignage">Témoignage</div>
+          </div>
+        </div>
+        <button class="btn-run" id="btn-tt">Générer le script</button>
+      </div>
+      <div class="out-pane">
+        <div class="out-head">
+          <span class="out-head-title">Output</span>
+          <button class="btn-copy" onclick="copyEl('out-tt')">Copier</button>
+        </div>
+        <div class="prog-bar" id="prog-tt"><div class="prog-fill"></div></div>
+        <div class="out-body" id="out-tt">
+          <div class="placeholder">
+            <div class="placeholder-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+            Le script apparaîtra ici
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FICHE ===== -->
+  <div class="panel" id="panel-fiche">
+    <div class="two-col">
+      <div class="form-pane">
+        <div class="f-group">
+          <label class="f-label">Nom du produit</label>
+          <input class="f-input" id="fp-name" placeholder="ex: Sac urbain anti-vol" />
+        </div>
+        <div class="f-row">
+          <div class="f-group">
+            <label class="f-label">Catégorie</label>
+            <input class="f-input" id="fp-cat" placeholder="ex: Maroquinerie" />
+          </div>
+          <div class="f-group">
+            <label class="f-label">Prix</label>
+            <input class="f-input" id="fp-price" placeholder="ex: 59 €" />
+          </div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Caractéristiques</label>
+          <textarea class="f-textarea" id="fp-feats" rows="3" placeholder="Imperméable, USB-C, serrure biométrique, 20L, 500g..."></textarea>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Ton</label>
+          <div class="chips" id="fp-chips">
+            <div class="chip on" data-val="premium">Premium</div>
+            <div class="chip" data-val="streetwear">Streetwear</div>
+            <div class="chip" data-val="minimaliste">Minimal</div>
+            <div class="chip" data-val="lifestyle">Lifestyle</div>
+          </div>
+        </div>
+        <button class="btn-run" id="btn-fp">Générer la fiche</button>
+      </div>
+      <div class="out-pane">
+        <div class="out-head">
+          <span class="out-head-title">Fiche Produit</span>
+          <button class="btn-copy" onclick="copyEl('out-fp')">Copier</button>
+        </div>
+        <div class="prog-bar" id="prog-fp"><div class="prog-fill"></div></div>
+        <div class="out-body" id="out-fp">
+          <div class="placeholder">
+            <div class="placeholder-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/></svg></div>
+            La fiche Shopify apparaîtra ici
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ANALYSE ===== -->
+  <div class="panel" id="panel-analyse">
+    <div class="two-col">
+      <div class="form-pane">
+        <div class="f-group">
+          <label class="f-label">Produit</label>
+          <input class="f-input" id="an-prod" placeholder="ex: Mini projecteur LED" />
+        </div>
+        <div class="f-row">
+          <div class="f-group">
+            <label class="f-label">Coût fournisseur</label>
+            <input class="f-input" id="an-cost" placeholder="ex: 12 €" />
+          </div>
+          <div class="f-group">
+            <label class="f-label">Prix de vente</label>
+            <input class="f-input" id="an-sell" placeholder="ex: 49 €" />
+          </div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Niche cible</label>
+          <input class="f-input" id="an-niche" placeholder="ex: Tech gadgets, étudiants 18–25" />
+        </div>
+        <button class="btn-run" id="btn-an">Analyser</button>
+      </div>
+      <div class="out-pane">
+        <div class="out-head">
+          <span class="out-head-title">Rapport d'analyse</span>
+          <button class="btn-copy" onclick="copyEl('out-an')">Copier</button>
+        </div>
+        <div class="prog-bar" id="prog-an"><div class="prog-fill"></div></div>
+        <div class="out-body" id="out-an">
+          <div class="placeholder">
+            <div class="placeholder-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+            Le rapport apparaîtra ici
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BRIEF ===== -->
+  <div class="panel" id="panel-brief">
+    <div class="two-col">
+      <div class="form-pane">
+        <div class="f-group">
+          <label class="f-label">Produit recherché</label>
+          <input class="f-input" id="br-prod" placeholder="ex: Crossbody bag fingerprint lock" />
+        </div>
+        <div class="f-row">
+          <div class="f-group">
+            <label class="f-label">MOQ</label>
+            <input class="f-input" id="br-moq" placeholder="ex: 50 units" />
+          </div>
+          <div class="f-group">
+            <label class="f-label">Budget / unité</label>
+            <input class="f-input" id="br-budget" placeholder="ex: $15–20" />
+          </div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Spécifications</label>
+          <textarea class="f-textarea" id="br-specs" rows="3" placeholder="Logo custom, packaging neutre, coloris, certifications..."></textarea>
+        </div>
+        <button class="btn-run" id="btn-br">Générer le brief</button>
+      </div>
+      <div class="out-pane">
+        <div class="out-head">
+          <span class="out-head-title">Brief Fournisseur EN / FR</span>
+          <button class="btn-copy" onclick="copyEl('out-br')">Copier</button>
+        </div>
+        <div class="prog-bar" id="prog-br"><div class="prog-fill"></div></div>
+        <div class="out-body" id="out-br">
+          <div class="placeholder">
+            <div class="placeholder-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+            Le brief Alibaba apparaîtra ici
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CHAT ===== -->
+  <div class="panel" id="panel-chat">
+    <div class="chat-wrap">
+      <div class="chat-msgs" id="chat-msgs">
+        <div class="msg-ai">
+          <div class="ai-avatar">DA</div>
+          <div class="ai-bubble">Bonjour. Je suis votre assistant DropAI.<br><br>Je peux vous aider sur : stratégie dropshipping, TikTok Shop, Shopify, fournisseurs, pricing — et générer du <strong>code Liquid</strong> pour vos sections Shopify. Comment puis-je vous aider ?</div>
+        </div>
+      </div>
+      <div class="chat-input-row">
+        <input class="f-input" id="chat-in" placeholder="Posez votre question ou demandez un code Liquid..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)sendChat()" />
+        <button class="btn-send" id="btn-chat-send" onclick="sendChat()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== SITE BUILDER ===== -->
+  <div class="panel" id="panel-site">
+    <div class="builder-grid" id="builder-form-view">
+      <div class="form-pane">
+        <div class="f-group">
+          <label class="f-label">Nom de la marque</label>
+          <input class="f-input" id="sb-brand" placeholder="ex: AzurStyle" />
+        </div>
+        <div class="f-group">
+          <label class="f-label">Slogan</label>
+          <input class="f-input" id="sb-slogan" placeholder="ex: Élégance sans effort" />
+        </div>
+        <div class="f-group">
+          <label class="f-label">Description / activité</label>
+          <textarea class="f-textarea" id="sb-desc" rows="2" placeholder="ex: Mode streetwear premium pour femmes 18–30 ans"></textarea>
+        </div>
+        <div class="f-row">
+          <div class="f-group">
+            <label class="f-label">Couleur principale</label>
+            <input type="color" id="sb-c1" value="#1a1a2e" />
+          </div>
+          <div class="f-group">
+            <label class="f-label">Couleur accent</label>
+            <input type="color" id="sb-c2" value="#5B8AF5" />
+          </div>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Sections à inclure</label>
+          <div class="checks" id="sb-sections">
+            <div class="check-item on" data-sec="hero"><div class="check-box">✓</div>Hero / Bannière principale</div>
+            <div class="check-item on" data-sec="features"><div class="check-box">✓</div>Avantages / Features</div>
+            <div class="check-item on" data-sec="products"><div class="check-box">✓</div>Grille de produits</div>
+            <div class="check-item" data-sec="testimonials"><div class="check-box"></div>Avis clients</div>
+            <div class="check-item" data-sec="newsletter"><div class="check-box"></div>Newsletter</div>
+            <div class="check-item" data-sec="faq"><div class="check-box"></div>FAQ</div>
+            <div class="check-item on" data-sec="footer"><div class="check-box">✓</div>Footer</div>
+          </div>
+        </div>
+        <button class="btn-run" id="btn-sb">Générer le thème Shopify</button>
+      </div>
+      <div class="out-pane">
+        <div class="builder-placeholder">
+          <div class="builder-placeholder-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.35"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <div style="font-weight:600;font-size:14px;color:var(--sub)">Générateur de thème Shopify</div>
+          <div style="font-size:12px;color:var(--muted);max-width:260px;line-height:1.7">Configurez votre marque et générez un thème Shopify complet — code source ou archive ZIP prête à uploader.</div>
+        </div>
+
+        <!-- BUILD IN PROGRESS -->
+        <div id="builder-progress" style="display:none;flex:1;flex-direction:column;overflow:auto;padding:24px;gap:16px">
+          <div style="font-weight:600;font-size:14px">Génération en cours<span class="cur"></span></div>
+          <div style="font-size:12px;color:var(--sub)" id="prog-status">Initialisation...</div>
+          <div id="step-list" class="steps"></div>
+        </div>
+
+        <!-- RESULT -->
+        <div id="builder-result" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+          <div style="padding:18px 20px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02)">
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px;color:var(--green)">Thème généré avec succès</div>
+            <div style="font-size:12px;color:var(--sub)">Choisissez comment récupérer votre thème Shopify</div>
+          </div>
+          <div class="result-btns">
+            <div class="result-btn" onclick="showCodeView()">
+              <span class="rb-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+              </span>
+              <div class="rb-title">Code Complet</div>
+              <div class="rb-sub">Voir et copier chaque fichier Liquid</div>
+            </div>
+            <div class="result-btn" onclick="downloadZip()">
+              <span class="rb-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </span>
+              <div class="rb-title">Télécharger .ZIP</div>
+              <div class="rb-sub">Thème prêt à uploader sur Shopify</div>
+            </div>
+          </div>
+          <!-- CODE VIEW -->
+          <div id="code-view-wrap" style="display:none;flex:1;overflow:hidden;flex-direction:column">
+            <div class="file-tabs" id="file-tabs-row"></div>
+            <div style="display:flex;justify-content:flex-end;padding:8px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02)">
+              <button class="btn-copy" id="btn-copy-file" onclick="copyCurrentFile()">Copier fichier</button>
+            </div>
+            <div class="file-content" id="file-content-view">
+              <pre id="file-content-pre"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ===== BUBBLES =====
+(function(){
+  const canvas = document.getElementById('bubblesCanvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, bubbles=[];
+
+  function resize(){
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function makeBubble(){
+    const r = 20 + Math.random()*80;
+    return {
+      x: Math.random()*W, y: H + r*2,
+      r, vx:(Math.random()-0.5)*0.4,
+      vy:-(0.15+Math.random()*0.35),
+      alpha: 0.04 + Math.random()*0.08,
+      hue: 200 + Math.random()*60,
+      pulse: Math.random()*Math.PI*2,
+      pulseSpeed: 0.008 + Math.random()*0.012,
+    };
+  }
+
+  function init(){
+    resize();
+    bubbles = Array.from({length:18}, makeBubble);
+    bubbles.forEach(b=>{ b.y = Math.random()*H; });
+    loop();
+  }
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const now = Date.now()*0.001;
+    bubbles.forEach(b=>{
+      b.pulse += b.pulseSpeed;
+      const alpha = b.alpha*(0.7+0.3*Math.sin(b.pulse));
+      const grad = ctx.createRadialGradient(
+        b.x-b.r*0.3, b.y-b.r*0.3, b.r*0.1,
+        b.x, b.y, b.r
+      );
+      grad.addColorStop(0, `hsla(${b.hue},80%,75%,${alpha*1.8})`);
+      grad.addColorStop(0.5, `hsla(${b.hue},70%,65%,${alpha*0.6})`);
+      grad.addColorStop(1, `hsla(${b.hue},70%,65%,0)`);
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+      // rim highlight
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+      ctx.strokeStyle = `hsla(${b.hue},80%,85%,${alpha*1.2})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      b.x += b.vx; b.y += b.vy;
+      if(b.y < -b.r*3) Object.assign(b, makeBubble());
+    });
+  }
+
+  function loop(){ draw(); requestAnimationFrame(loop); }
+  window.addEventListener('resize', resize);
+  init();
+})();
+
+// ===== UTILS =====
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function copyEl(id){
+  const txt = $(id).innerText;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const e = event.target;
+    const old = e.textContent;
+    e.textContent = 'Copié';
+    setTimeout(()=>e.textContent=old, 1500);
+  });
+}
+function escH(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ===== NAV =====
+const topTitles = {
+  tiktok:{t:'Script TikTok',s:'Scripts viraux pour vendre sur TikTok'},
+  fiche:{t:'Fiche Produit',s:'Fiches Shopify optimisées SEO en un clic'},
+  analyse:{t:'Analyse Produit',s:'Diagnostic rentabilité — marge, tendance, verdict'},
+  brief:{t:'Brief Fournisseur',s:'Brief professionnel EN/FR pour Alibaba'},
+  chat:{t:'Chat IA',s:'Assistant dropshipping + générateur de code Liquid'},
+  site:{t:'Créer un Site',s:'Génère un thème Shopify complet — code ou archive .zip'},
+};
+
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    const id = item.dataset.panel;
+    document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    item.classList.add('active');
+    $('panel-'+id).classList.add('active');
+    const meta = topTitles[id];
+    $('top-title').textContent = meta.t;
+    $('top-sub').textContent = meta.s;
+    document.getElementById('sidebar').classList.remove('open');
+  });
+});
+
+// ===== CHIPS =====
+document.querySelectorAll('.chips').forEach(g=>{
+  g.querySelectorAll('.chip').forEach(c=>{
+    c.addEventListener('click',()=>{
+      g.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+      c.classList.add('on');
+    });
+  });
+});
+function getChip(gid){ return document.querySelector('#'+gid+' .chip.on')?.dataset.val||''; }
+
+// ===== CHECKBOXES =====
+document.querySelectorAll('.check-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    const on = item.classList.toggle('on');
+    item.querySelector('.check-box').textContent = on ? '✓' : '';
+  });
+});
+function getChecked(gid){
+  return [...document.querySelectorAll('#'+gid+' .check-item.on')].map(i=>i.dataset.sec);
+}
+
+// ===== API =====
+async function callAI(system, user, outId, progId, btnId){
+  const btn = btnId ? $(btnId) : null;
+  const out = $(outId);
+  const prog = $(progId);
+  if(btn) btn.disabled = true;
+  if(prog) prog.style.display = 'block';
+  out.innerHTML = '<span class="cur"></span>';
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':'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','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system,
+        messages:[{role:'user',content:user}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'Erreur de réponse.';
+    if(prog) prog.style.display = 'none';
+    await typewrite(out, text);
+  }catch(e){
+    if(prog) prog.style.display = 'none';
+    out.innerHTML = `<span style="color:#f87171">Erreur : ${e.message}</span>`;
+  }
+  if(btn) btn.disabled = false;
+}
+
+async function callAIRaw(system, user){
+  const res = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':'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','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:1000,
+      system,
+      messages:[{role:'user',content:user}]
+    })
+  });
+  const data = await res.json();
+  return data.content?.[0]?.text || '';
+}
+
+async function typewrite(el, text){
+  const speed = text.length > 400 ? 4 : 9;
+  el.innerHTML = '';
+  for(let i=0;i<text.length;i++){
+    el.innerHTML = escH(text.slice(0,i+1))+'<span class="cur"></span>';
+    el.scrollTop = el.scrollHeight;
+    await sleep(speed);
+  }
+  el.innerHTML = escH(text);
+}
+
+// ===== TIKTOK =====
+$('btn-tt').addEventListener('click',()=>{
+  callAI(
+    `Expert TikTok marketing et dropshipping FR. Scripts viraux, punchy, 45-60s. Format : hook / problème / démo / CTA. Réponds UNIQUEMENT avec le script, sans préambule.`,
+    `Script TikTok format "${getChip('tt-chips')}" pour :\n- Produit : ${$('tt-product').value||'produit'}\n- Cible : ${$('tt-target').value||'grand public'}\n- Prix : ${$('tt-price').value||'?'}\n- USP : ${$('tt-usp').value||''}\n\nStructure avec timecodes :\nHOOK (0-3s)\nPROBLÈME/DÉSIR (3-15s)\nDÉMO (15-40s)\nCTA (40-60s)\n\nÉcris exactement ce qui est dit à voix haute.`,
+    'out-tt','prog-tt','btn-tt'
+  );
+});
+
+// ===== FICHE =====
+$('btn-fp').addEventListener('click',()=>{
+  callAI(
+    `Expert e-commerce et copywriter Shopify. Fiches produit SEO, ton "${getChip('fp-chips')}", orientées bénéfices. Pas d'intro inutile.`,
+    `Fiche produit Shopify pour : ${$('fp-name').value||'produit'}\nCatégorie: ${$('fp-cat').value||''} | Prix: ${$('fp-price').value||''}\nCaractéristiques: ${$('fp-feats').value||''}\n\nStructure:\nTITRE SEO\nACCROCHE (1 ligne)\nDESCRIPTION COURTE (2-3 phrases, émotions)\nPOURQUOI CE PRODUIT (3-4 bullet bénéfices)\nCARACTÉRISTIQUES TECHNIQUES\nPROMESSE FINALE`,
+    'out-fp','prog-fp','btn-fp'
+  );
+});
+
+// ===== ANALYSE =====
+$('btn-an').addEventListener('click',()=>{
+  callAI(
+    `Expert dropshipping et e-commerce. Diagnostics honnêtes et actionnables. Scores /10. Réponse directe sans intro.`,
+    `Analyse dropshipping pour :\n- Produit: ${$('an-prod').value||'produit'}\n- Coût: ${$('an-cost').value||'?'} / Vente: ${$('an-sell').value||'?'}\n- Niche: ${$('an-niche').value||''}\n\nSCORE GLOBAL /10\nMARGE (calcul + %)\nPOTENTIEL VIRAL /10\nSATURATION\nTENDANCE 2026\nATOUTS (3)\nRISQUES (2-3)\nVERDICT FINAL`,
+    'out-an','prog-an','btn-an'
+  );
+});
+
+// ===== BRIEF =====
+$('btn-br').addEventListener('click',()=>{
+  callAI(
+    `Expert sourcing Alibaba et négociation fournisseurs chinois. Briefs pro, précis. Chaque section en ANGLAIS puis traduction FR dessous.`,
+    `Brief fournisseur pour:\n- Produit: ${$('br-prod').value||'produit'}\n- MOQ: ${$('br-moq').value||'50'}\n- Budget: ${$('br-budget').value||''}\n- Specs: ${$('br-specs').value||''}\n\n1. Company Introduction\n2. Product Requirements\n3. Customization\n4. Quantity & Pricing\n5. Quality & Certifications\n6. Shipping (Incoterm, délai)\n7. Next Steps\n\nInclure demande de sample. Format : section EN puis traduction FR.`,
+    'out-br','prog-br','btn-br'
+  );
+});
+
+// ===== CHAT =====
+const chatHist = [];
+function renderCodeBlocks(text){
+  return text.replace(/```(\w*)\n?([\s\S]*?)```/g,(_,lang,code)=>{
+    const l = lang||'code';
+    return `<div class="code-block">
+      <div class="code-block-head">
+        <span>${l.toUpperCase()}</span>
+        <button class="btn-copy" onclick="navigator.clipboard.writeText(this.closest('.code-block').querySelector('pre').textContent);this.textContent='Copié';setTimeout(()=>this.textContent='Copier',1500)">Copier</button>
+      </div>
+      <pre>${escH(code.trim())}</pre>
+    </div>`;
+  }).replace(/\n/g,'<br>');
+}
+
+async function sendChat(){
+  const input = $('chat-in');
+  const msg = input.value.trim();
+  if(!msg) return;
+  input.value = '';
+  $('btn-chat-send').disabled = true;
+  const msgs = $('chat-msgs');
+  msgs.innerHTML += `<div class="msg-user">${escH(msg)}</div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+  chatHist.push({role:'user',content:msg});
+  const tid = 'ta'+Date.now();
+  msgs.innerHTML += `<div class="msg-ai"><div class="ai-avatar">DA</div><div class="ai-bubble" id="${tid}"><span class="cur"></span></div></div>`;
+  msgs.scrollTop = msgs.scrollHeight;
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':'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','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:`Tu es DropAI, expert en dropshipping, Shopify, TikTok marketing, et développement de thèmes Shopify Liquid. Tu parles en français, tu es direct et pratique. Quand on te demande du code (Liquid, CSS, JS, HTML), tu fournis TOUJOURS le code dans des blocs de code bien formatés avec la syntaxe appropriée.`,
+        messages: chatHist
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'Erreur.';
+    chatHist.push({role:'assistant',content:text});
+    $(tid).innerHTML = renderCodeBlocks(text);
+    msgs.scrollTop = msgs.scrollHeight;
+  }catch(e){
+    $(tid).innerHTML = `<span style="color:#f87171">Erreur réseau</span>`;
+  }
+  $('btn-chat-send').disabled = false;
+}
+
+// ===== SITE BUILDER =====
+let generatedFiles = {};
+let currentFileKey = null;
+
+const FILE_DEFS = [
+  {key:'layout/theme.liquid',label:'Layout principal'},
+  {key:'assets/base.css',label:'Styles CSS'},
+  {key:'sections/header.liquid',label:'Header'},
+  {key:'sections/hero.liquid',label:'Section Hero'},
+  {key:'sections/product-grid.liquid',label:'Grille Produits',sec:'products'},
+  {key:'sections/features.liquid',label:'Features',sec:'features'},
+  {key:'sections/testimonials.liquid',label:'Avis Clients',sec:'testimonials'},
+  {key:'sections/newsletter.liquid',label:'Newsletter',sec:'newsletter'},
+  {key:'sections/faq.liquid',label:'FAQ',sec:'faq'},
+  {key:'sections/footer.liquid',label:'Footer'},
+  {key:'templates/index.json',label:'Template Index'},
+  {key:'config/settings_schema.json',label:'Settings Schema'},
+];
+
+async function generateFile(key,brand,slogan,c1,c2,desc,sections){
+  const sys=`Tu es un expert Shopify theme developer. Tu écris du code Liquid/JSON/CSS propre et fonctionnel pour Shopify. Réponds UNIQUEMENT avec le code brut, aucun commentaire, aucun markdown, aucun backtick.`;
+  const ctx=`Marque: ${brand} | Slogan: ${slogan} | Couleur principale: ${c1} | Accent: ${c2} | Description: ${desc}`;
+  const prompts={
+    'layout/theme.liquid':`Génère layout/theme.liquid pour un thème Shopify. Include: doctype, head avec meta/title/content_for_header/stylesheet_tag pour base.css, body avec content_for_layout. ${ctx}`,
+    'assets/base.css':`CSS complet pour un thème Shopify ${brand}. Variables CSS: --color-primary:${c1}; --color-accent:${c2}; --color-text:#1a1a1a. Styles pour: body, header, hero, product-grid, footer. Mobile-first, moderne.`,
+    'sections/header.liquid':`Section header.liquid Shopify pour ${brand}. Logo texte, navigation, bouton panier. Sticky. Schema JSON.`,
+    'sections/hero.liquid':`Section hero.liquid Shopify. Grand titre, sous-titre, bouton CTA. Schema JSON complet. ${ctx}`,
+    'sections/product-grid.liquid':`Section product-grid.liquid Shopify. Grille 3 cols, product card avec image/titre/prix/bouton. Schema JSON.`,
+    'sections/features.liquid':`Section features.liquid Shopify. 3 blocs feature. Grille responsive. Schema JSON. ${ctx}`,
+    'sections/testimonials.liquid':`Section testimonials.liquid Shopify. 3 avis clients. Schema avec blocks. ${ctx}`,
+    'sections/newsletter.liquid':`Section newsletter.liquid Shopify. Formulaire email, titre, sous-titre. Shopify form tag. ${ctx}`,
+    'sections/faq.liquid':`Section faq.liquid Shopify. Accordéon 4 Q&R. Toggle JS inline. Schema blocks FAQ.`,
+    'sections/footer.liquid':`Section footer.liquid Shopify. Logo, copyright, liens, réseaux sociaux. Schema minimal.`,
+    'templates/index.json':`templates/index.json valide pour Shopify. Sections: header, hero${sections.includes('features')?', features':''}${sections.includes('products')?', product-grid':''}${sections.includes('testimonials')?', testimonials':''}${sections.includes('newsletter')?', newsletter':''}${sections.includes('faq')?', faq':''}, footer. Format JSON Shopify 2.0.`,
+    'config/settings_schema.json':`config/settings_schema.json minimal pour Shopify. Include: theme_info (name:${brand}, version:1.0), colors, typography. Tableau JSON valide.`,
+  };
+  return await callAIRaw(sys, prompts[key]||`Génère ${key} pour thème Shopify. ${ctx}`);
+}
+
+$('btn-sb').addEventListener('click', async()=>{
+  const brand=$('sb-brand').value||'MaMarque';
+  const slogan=$('sb-slogan').value||'';
+  const desc=$('sb-desc').value||'';
+  const c1=$('sb-c1').value||'#1a1a2e';
+  const c2=$('sb-c2').value||'#5B8AF5';
+  const sections=getChecked('sb-sections');
+  $('builder-form-view').style.display='none';
+  const prog=$('builder-progress');
+  prog.style.display='flex';
+  generatedFiles={};
+  const filesToGen=FILE_DEFS.filter(f=>!f.sec||sections.includes(f.sec));
+  const stepList=$('step-list');
+  stepList.innerHTML='';
+  filesToGen.forEach(f=>{
+    stepList.innerHTML+=`<div class="step" id="step-${f.key.replace(/[/.]/g,'_')}"><div class="step-dot"></div><span>${f.label} <span style="color:var(--muted);font-size:10px;font-family:var(--mono)">${f.key}</span></span></div>`;
+  });
+  for(let i=0;i<filesToGen.length;i++){
+    const f=filesToGen[i];
+    const stepId='step-'+f.key.replace(/[/.]/g,'_');
+    const stepEl=$(stepId);
+    if(stepEl) stepEl.classList.add('active');
+    $('prog-status').textContent=`Génération : ${f.label} (${i+1}/${filesToGen.length})`;
+    try{
+      const content=await generateFile(f.key,brand,slogan,c1,c2,desc,sections);
+      generatedFiles[f.key]=content;
+      if(stepEl){stepEl.classList.remove('active');stepEl.classList.add('done');}
+    }catch(e){
+      if(stepEl) stepEl.classList.remove('active');
+    }
+  }
+  prog.style.display='none';
+  const result=$('builder-result');
+  result.style.display='flex';
+  result.style.flexDirection='column';
+});
+
+function showCodeView(){
+  const cv=$('code-view-wrap');
+  cv.style.display='flex';
+  cv.style.flexDirection='column';
+  const tabsRow=$('file-tabs-row');
+  tabsRow.innerHTML='';
+  const keys=Object.keys(generatedFiles);
+  keys.forEach((k,i)=>{
+    const tab=document.createElement('div');
+    tab.className='file-tab'+(i===0?' active':'');
+    tab.textContent=k.split('/').pop();
+    tab.onclick=()=>{
+      document.querySelectorAll('.file-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      currentFileKey=k;
+      $('file-content-pre').textContent=generatedFiles[k];
+    };
+    tabsRow.appendChild(tab);
+  });
+  if(keys.length>0){currentFileKey=keys[0];$('file-content-pre').textContent=generatedFiles[keys[0]];}
+}
+
+function copyCurrentFile(){
+  if(currentFileKey&&generatedFiles[currentFileKey]){
+    navigator.clipboard.writeText(generatedFiles[currentFileKey]).then(()=>{
+      $('btn-copy-file').textContent='Copié';
+      setTimeout(()=>$('btn-copy-file').textContent='Copier fichier',1500);
+    });
+  }
+}
+
+async function downloadZip(){
+  const zip=new JSZip();
+  Object.entries(generatedFiles).forEach(([path,content])=>zip.file(path,content));
+  if(!generatedFiles['locales/en.default.json'])
+    zip.file('locales/en.default.json',JSON.stringify({"general":{"pagination":{"previous":"Précédent","next":"Suivant"}}},null,2));
+  if(!generatedFiles['config/settings_data.json'])
+    zip.file('config/settings_data.json',JSON.stringify({"current":{"colors_primary":"#1a1a2e"}},null,2));
+  zip.file('snippets/icon-close.liquid','<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>');
+  const blob=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const brandName=($('sb-brand').value||'theme').toLowerCase().replace(/\s+/g,'-');
+  a.href=url;a.download=`dropai-theme-${brandName}.zip`;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+document.querySelector('[data-panel="site"]').addEventListener('click',()=>{
+  $('builder-form-view').style.display='grid';
+  $('builder-progress').style.display='none';
+  $('builder-result').style.display='none';
+  $('code-view-wrap').style.display='none';
+});
+</script>
+</body>
+</html>
